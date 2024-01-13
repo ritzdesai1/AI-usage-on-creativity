@@ -1,0 +1,101 @@
+
+Using Pearson's R to find the correlation between AI usage and artistic creativity. It is hypothesized that higher scores on AI usage scale will negatively correlate with higher scores on creativity scale. 
+
+Load the Libraries 
+
+```{r}
+library(DescTools)
+library(psych)
+library(ggplot2)
+library(dplyr)
+```
+
+
+Loading Your Dataset:
+
+```{r}
+surveydata <- read.csv("TASurvey.csv")
+
+```
+
+Cleaning the dataset
+```{r}
+#Removing unnecessary columns from the dataset
+surveydata <- surveydata[-c(1:17)]
+surveydata <- surveydata[-c(10)]
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+#Changing all columns to numeric type
+surveydata$CTQ_1 <- as.numeric(surveydata$CTQ_1)
+surveydata$CTQ_3 <- as.numeric(surveydata$CTQ_3)
+surveydata$CTQ_10 <- as.numeric(surveydata$CTQ_10)
+surveydata$Q4_6 <- as.numeric(surveydata$Q4_6)
+surveydata$PPB_12 <- as.numeric(surveydata$PPB_12)
+surveydata$PPB_13 <- as.numeric(surveydata$PPB_13)
+surveydata$PPB_15 <- as.numeric(surveydata$PPB_15)
+surveydata$PPB_16 <- as.numeric(surveydata$PPB_16)
+surveydata$PPB_17 <- as.numeric(surveydata$PPB_17)
+```
+```{r}
+#Removing Na values
+surveydata <- na.omit(surveydata)
+```
+
+
+Reviewing your Dataset
+```{r}
+describeBy(surveydata)
+```
+
+
+```{r}
+#Creating predictor and outcome columns to measure them
+surveydata$Predictor <- rowSums(surveydata[ , c(1:4)], na.rm=TRUE)
+surveydata$Outcome <- rowSums(surveydata[ , c(5:9)], na.rm=TRUE)
+```
+
+
+Creating vectors for easier understanding of code
+
+```{r}
+predictor<- surveydata$Predictor
+outcome<- surveydata$Outcome
+```
+
+Examining Statistical Assumptions
+
+```{r}
+plot(density(predictor))
+plot(density(outcome))
+
+ggplot(surveydata, aes(x=predictor, y=outcome)) + geom_point() + geom_jitter() + ggtitle("Correlation between predictor and outcome") + labs(y=" outcome", x = "predictor")
+```
+
+Running the Inferential Analysis:
+```{r}
+#Pearson's R to find correlation between predictor and outcome
+cor.test(predictor,outcome) 
+```
+
+
+Graph to visualize the results
+
+```{r}
+ggplot(surveydata, aes(x=predictor, y=outcome)) + geom_point() + geom_jitter() + ggtitle("Correlation analysis between AI usage and Creativity") + labs(y=" Creativity", x = "AI Usage")
+```
+
+
+From the above results it can be concluded that there is statistically insignificant weak positive correlation (r(26)=0.34, p=0.06) between scores on AI usage scale and scores on K-DOCS. 
+
+
+
+
+
+
