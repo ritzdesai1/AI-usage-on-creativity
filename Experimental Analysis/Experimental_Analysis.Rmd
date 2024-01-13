@@ -1,0 +1,235 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+One-way ANOVA Analysis to test the hypothesis of 'AI Usage can decrease artistic creativity'
+
+*Loading Libraries*
+
+```{r}
+library(DescTools)
+library(psych)
+library(ggplot2)
+library(dplyr)
+library(car)
+library(effectsize)
+library(RcmdrMisc)
+library(tidyverse)
+library(rstatix)
+library(ggpubr)
+options(es.use_symbols = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+library(text2vec)
+library(tm)
+library(SnowballC)
+library(glmnet)
+library(vip)
+library(naivebayes)
+library(ranger)
+library(xgboost)
+library(ROCR)
+```
+
+################################################################################
+
+*Loading the Dataset*
+
+```{r}
+dataname<-read.csv("AI_Survey.csv")
+```
+
+
+*Data Cleaning for further analysis.*
+```{r}
+cleanedData <- dataname[!dataname=="",]
+
+```
+
+
+```{r}
+#Converting required columns to numeric values 
+cleanedData$DQ1_12 <- as.numeric(cleanedData$DQ1_12)
+typeof(cleanedData$DQ1_12)
+cleanedData$DQ1_13 <- as.numeric(cleanedData$DQ1_13)
+typeof(cleanedData$DQ1_13)
+cleanedData$DQ1_15 <- as.numeric(cleanedData$DQ1_15)
+typeof(cleanedData$DQ1_15)
+cleanedData$DQ1_16 <- as.numeric(cleanedData$DQ1_16)
+typeof(cleanedData$DQ1_16)
+cleanedData$DQ1_17 <- as.numeric(cleanedData$DQ1_17)
+typeof(cleanedData$DQ1_17)
+cleanedData$Q9_4 <- as.numeric(cleanedData$Q9_4)
+typeof(cleanedData$Q9_4)
+cleanedData <- na.omit(cleanedData)
+```
+
+
+```{r}
+#Creating a column for outcome variable measurement
+cleanedData$Creativity <- rowSums(cleanedData[ , c(3:7)], na.rm=TRUE)
+```
+
+
+```{r}
+#Removing the first row
+#cleanedData <- cleanedData[-c(1),]
+#View(cleanedData)
+```
+
+
+```{r}
+#Cleaning the poem column
+cleanedData$AI.Usage <- tolower(cleanedData$AI.Usage)
+cleanedData$AI.Usage <- gsub("[[:punct:]]", "", cleanedData$AI.Usage)
+cleanedData<- cleanedData[str_count(cleanedData$AI.Usage, "\\S+") > 3,]
+words_to_remove = c("chatgpt|chat gpt")
+
+cleanedData  <- subset(cleanedData, !grepl(words_to_remove, cleanedData$AI.Usage))
+cleanedData <- na.omit(cleanedData)
+#cleanedData <- cleanedData[cleanedData$Q9_4 != "",]
+#View(cleanedData)
+
+```
+
+
+################################################################################
+*Descriptive statistics*
+
+```{r}
+library(RcmdrMisc)
+numSummary (cleanedData$Creativity, groups=cleanedData$Condition, statistics=c("mean", "sd"))
+```
+
+
+
+################################################################################
+
+Since our predictor is a factor, we need to make sure R recognizes it as such.
+
+```{r}
+cleanedData$Condition <- as.factor(cleanedData$Condition)
+```
+
+*Running an independent t-test to check if the manipulation of independent variable worked*
+
+1) Assumption of Independent Observations*
+- Each observation is independent so this is not violated.
+
+2) Assumption of an Approximately Normally Distributed Outcome Variable
+
+```{r}
+plot(density(cleanedData$Creativity))
+```
+
+
+3) Assumption of Homogeneity of Variance
+
+```{r}
+cleanedData$Condition <- as.factor(cleanedData$Condition)
+leveneTest(cleanedData$Creativity~cleanedData$Condition)
+
+
+# This assumption is not violated IF p > 0.05.
+```
+
+
+4) Assumption of No Outliers or Extreme Scores
+
+```{r}
+boxplot(cleanedData$Creativity)
+```
+
+
+***Did the manipulation actually work?***
+
+
+```{r}
+t.test(cleanedData$Q9_4~cleanedData$Condition, var.equal=TRUE)
+
+```
+Actual p = 0.05/2 = 0.02 as the difference between group 1 and group 2 was predicted in the same direction as per the results.
+
+An independent samples t-test showed that there was not a significant difference (t(34)= 2.01, p = 0.02) between the group which didn't use ChatGPT (M = 252.1053, SD=94.15525) compared to the group that used ChatGPT (M = 277.4706, SD=82.71118 ).
+
+
+################################################################################
+
+*Assessing Data for ANOVA*
+
+
+```{r}
+#Data points in each group
+
+
+length(cleanedData$Condition[cleanedData$Condition==1])
+length(cleanedData$Condition[cleanedData$Condition==2])
+
+```
+
+
+```{r}
+#Factoring the predictor/independent variable since it is categorical
+cleanedData$Condition <- as.factor(cleanedData$Condition) 
+```
+
+
+Testing Assumptions for ANOVA:
+*Assumption #1: No Extreme Outliers*
+
+```{r}
+boxplot(cleanedData$Creativity~cleanedData$Condition, data=cleanedData)
+```
+There is one outlier in Group 1 where the participants were asked to write a poem on there own without external help. Therefore this assumption is violated.
+
+*Assumption #2: Homogeneity of Variances*
+
+```{r}
+
+library(car)
+leveneTest(cleanedData$Creativity ~ cleanedData$Condition)
+
+
+# This assumption is not violated IF p > 0.05.
+```
+
+*Assumption #3: Normality*
+
+```{r}
+regression <- aov(lm(Creativity~Condition, data=cleanedData))
+plot(regression, 2)
+
+```
+
+
+################################################################################
+
+*Analysis for effect of AI Usage on artistic creativity using one way ANOVA*
+```{r}
+#dataname$Condition <- as.factor(dataname$Condition)
+#dataname$SubjectVariable <- as.factor(dataname$SubjectVariable)
+
+model1 <- aov(lm(Creativity~Condition, data=cleanedData))
+summary(model1)
+
+```
+
+################################################################################
+
+*Graph to plot the results*
+
+
+```{r}
+library(ggplot2)
+
+ai_creativity <-ggplot(cleanedData, aes(x=Condition, y=Creativity)) + geom_boxplot() + labs(title="Impact of AI usage on Creativity",x="Usage of AI (ChatGPT)", y = "Artistic Creativity") + 
+scale_x_discrete(breaks=c("1","2"), labels=c("ChatGPT NOT used to write a poem", "ChatGPT Used to write a poem")) 
+
+ai_creativity
+```
+
+In the above graph it is observed that the group which used AI (ChatGPT) scored higher on K-DOCS which goes against the researcher's hypothesis. The result from one-way ANOVA shows that there is no significant impact of AI usage on creativity (p=0.39), therefore we fail to reject the null hypothesis. Based on the results of this study it can be concluded that usage of AI tools such as ChatGPT cannot cause a decrease in a person's ability to write a short poem.
+
+
+
+
